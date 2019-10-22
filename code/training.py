@@ -16,7 +16,7 @@ n_inputs = 28*28
 n_outputs = 10
 n_hiddens = 200
 n_epochs = 1000
-n_batches = 100
+n_batches = 1000
 epoch = 0
 target_loss = 1e-5
 thresh_hold = 1e-4
@@ -34,21 +34,22 @@ train_dataset = tf.data.Dataset.from_tensor_slices((x_train,y_train)).shuffle(le
 """
 m_model = MyModel()
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
-epoch = 0
 while (epoch < n_epochs) or (loss < target_loss):
     epoch += 1
-    loss = 0
+    epoch_loss_avg = tf.keras.metrics.Mean()
     accuracy = 0
     for x, y in train_dataset:
         with tf.GradientTape() as tape:
             out_sm = m_model(x)
-            loss += my_loss(out_sm, y)
-            variables = m_model.trainable_weights
-            grads = tape.gradient(loss, variables)
+            batch_loss = my_loss(out_sm, y)
+            variables = m_model.trainable_variables
+            grads = tape.gradient(batch_loss, variables)
             optimizer.apply_gradients(zip(grads, variables))
-    loss /= len(x_train) // n_batches
+        epoch_loss_avg(batch_loss)
+    if epoch%1 == 0:
+        print(m_model.summary())
     test_out = m_model(x_test)
     accuracy = cal_acc(test_out, y_test)
-    m_model.add_layer()
     m_model.sparsify_weights()
-    print('Epoch : {} ----- Loss : {} ----- Acc : {}'.format(epoch, loss, accuracy))
+    m_model.add_layer()
+    print('Epoch : {} ----- Loss : {} ----- Acc : {}'.format(epoch, epoch_loss_avg.result(), accuracy))
