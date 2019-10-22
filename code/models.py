@@ -40,7 +40,7 @@ class MyModel(tf.keras.Model):
     self.num_layers = 1
     self.input_layer = MyDenseLayer(n_hiddens,shape = (None,self.n_inputs),
                                     layer_name ='input',
-                                    initializer = "TruncatedNormal"
+                                    initializer = "RandomNormal"
                                     )
     self.list_dense = [self.input_layer]
     self.output_layer = MyDenseLayer(n_outputs,shape = (None,self.n_hiddens),layer_name = 'output',initializer = "TruncatedNormal")

@@ -15,11 +15,11 @@ def my_loss(y_pred,y_true):
 n_inputs = 28*28
 n_outputs = 10
 n_hiddens = 200
-n_epochs = 1000
+n_epochs = 5
 n_batches = 1000
 epoch = 0
 target_loss = 1e-5
-thresh_hold = 1e-4
+thresh_hold = 1e-5
 """
     Load data
 """
@@ -34,7 +34,7 @@ train_dataset = tf.data.Dataset.from_tensor_slices((x_train,y_train)).shuffle(le
 """
 m_model = MyModel()
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
-while (epoch < n_epochs) or (loss < target_loss):
+while (epoch < n_epochs) or (epoch_loss_avg < target_loss):
     epoch += 1
     epoch_loss_avg = tf.keras.metrics.Mean()
     accuracy = 0
@@ -50,6 +50,6 @@ while (epoch < n_epochs) or (loss < target_loss):
         print(m_model.summary())
     test_out = m_model(x_test)
     accuracy = cal_acc(test_out, y_test)
-    m_model.sparsify_weights()
+    m_model.sparsify_weights(thresh_hold)
     m_model.add_layer()
     print('Epoch : {} ----- Loss : {} ----- Acc : {}'.format(epoch, epoch_loss_avg.result(), accuracy))
