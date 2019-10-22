@@ -22,9 +22,12 @@ class MyDenseLayer(tf.keras.layers.Layer):
     self.bias = self.add_weight("bias_{}".format(self.layer_name),
                                     shape=[self.num_outputs],
                                  regularizer=self.bias_regularizer,
-                                initializer = self.bias_initializer)
+                                initializer = 'zeros')
   def call(self, input, activation_function = tf.nn.relu):
-    return activation_function(tf.add(tf.matmul(input, self.kernel), self.bias))
+    if activation_function:
+        return activation_function(tf.add(tf.matmul(input, self.kernel), self.bias))
+    else:
+        return tf.add(tf.matmul(input, self.kernel), self.bias)
 
 def cal_acc(y_pred,y_true):
     correct = tf.math.in_top_k(tf.cast(y_true,tf.int64),tf.cast(y_pred, tf.float32),  1)
@@ -43,15 +46,21 @@ class MyModel(tf.keras.Model):
                                     initializer = "RandomNormal"
                                     )
     self.list_dense = [self.input_layer]
-    self.output_layer = MyDenseLayer(n_outputs,shape = (None,self.n_hiddens),layer_name = 'output',initializer = "TruncatedNormal")
+    self.output_layer = MyDenseLayer(
+        n_outputs,shape = (None,self.n_hiddens),
+        layer_name = 'output',
+        initializer = "RandomNormal")
   def call(self, inputs):
     for index,layer in enumerate(self.list_dense):
       if index == 0:
-        out = layer(inputs)
+        if self.n_hiddens == self.n_inputs:
+            out = inputs + layer(inputs)
+        else:
+            out = layer(inputs)
       elif 1<=index <= self.num_layers-1:
         prev_out = out
         out = prev_out + layer(out)
-    out = self.output_layer(out,activation_function = tf.nn.softmax)
+    out = self.output_layer(out,activation_function = None)
     return out
   def add_layer(self):
     self.num_layers += 1
