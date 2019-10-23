@@ -3,6 +3,7 @@ from tensorflow.python.keras import regularizers,initializers
 import pandas as pd
 from tensorflow.python.ops import nn
 import numpy as np
+
 class MyDenseLayer(tf.keras.layers.Layer):
   def __init__(self, num_outputs, shape = None, layer_name = None , kernel_regularizer = None, bias_regularizer = None, initializer = 'zeros'):
     super(MyDenseLayer, self).__init__(name = layer_name)
@@ -28,12 +29,6 @@ class MyDenseLayer(tf.keras.layers.Layer):
         return activation_function(tf.add(tf.matmul(input, self.kernel), self.bias))
     else:
         return tf.add(tf.matmul(input, self.kernel), self.bias)
-
-def cal_acc(y_pred,y_true):
-    correct = tf.math.in_top_k(tf.cast(y_true,tf.int64),tf.cast(y_pred, tf.float32),  1)
-    accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
-    return accuracy
-
 class MyModel(tf.keras.Model):
   def __init__(self,n_hiddens = 200,n_inputs = 784,n_outputs = 10):
     super(MyModel, self).__init__()
@@ -78,3 +73,24 @@ class MyModel(tf.keras.Model):
         bool_mask = (w > threshold).astype(int)
         sparsified_weights.append(w*bool_mask)
     self.layers[-2].set_weights(sparsified_weights)
+
+def cal_acc(y_pred,y_true):
+    """
+    Calculate accuracy
+    :param y_pred: softmax output of the model
+    :param y_true: targets
+    :return: accuracy
+    """
+    correct = tf.math.in_top_k(tf.cast(y_true,tf.int64),tf.cast(y_pred, tf.float32),  1)
+    accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
+    return accuracy
+def my_loss(y_pred,y_true,n_outputs):
+    """
+    Calculate cross entropy loss
+    :param y_pred: logits output from the model
+    :param y_true: targets
+    :param n_outputs: number of classes
+    :return: loss
+    """
+    y_true = tf.one_hot(y_true, n_outputs, dtype=tf.float32)
+    return  tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y_true,y_pred))
