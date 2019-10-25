@@ -76,7 +76,7 @@ class DenseModel(tf.keras.Model):
         sparsified_weights.append(w*bool_mask)
     self.list_dense[-1].set_weights(sparsified_weights)
 class CNNModel(tf.keras.Model):
-  def __init__(self, n_filters = 64,n_kernels = 3,n_outputs = 10, inp_shape = (28,28),regularizer = None):
+  def __init__(self, n_filters = 64,n_kernels = 3,n_outputs = 10, inp_shape = (28,28),regularizer = None, pool= None):
     """
     Adaptive layer-wise training model
     :param n_filters: number of filters
@@ -92,6 +92,7 @@ class CNNModel(tf.keras.Model):
     self.num_layers = 1
     self.inp_shape = inp_shape
     self.regularizer = regularizer
+    self.pool = pool
     if self.conv_dim == 1:
         self.input_layer = layers.Conv1D(self.n_filters, (self.n_kernels),
                                          activation = "linear",
@@ -109,6 +110,7 @@ class CNNModel(tf.keras.Model):
                                          kernel_regularizer=self.regularizer,
                                          bias_regularizer=self.regularizer
                                          )
+        self.pool = layers.MaxPool1D()
     elif self.conv_dim == 2:
         self.input_layer = layers.Conv2D(self.n_filters, (self.n_kernels,self.n_kernels),
                                          activation="linear",
@@ -126,11 +128,15 @@ class CNNModel(tf.keras.Model):
                                          kernel_regularizer=self.regularizer,
                                          bias_regularizer=self.regularizer
                                          )
+        self.pool = layers.MaxPool2D()
     self.list_cnn = [self.input_layer]
     self.flatten = layers.Flatten()
 
     #compute input shape after flatten for the dense layer
-    self.class_inp = np.prod(self.inp_shape[:-1])*self.n_kernels
+    if not self.pool:
+        self.class_inp = np.prod(self.inp_shape[:-1])*self.n_kernels
+    else:
+        self.class_inp = np.prod(self.inp_shape[:-1])*self.n_kernels//(2**self.conv_dim)
     self.classify = MyDenseLayer(
         self.n_outputs,shape = (None,self.class_inp),
         layer_name = 'classify',
@@ -143,6 +149,7 @@ class CNNModel(tf.keras.Model):
         prev_out = out
         out = prev_out + layer(out)
     out = self.output_layer(out)
+    out = self.pool(out)
     out = self.flatten(out)
     out = self.classify(out,activation_function = None)
     return out

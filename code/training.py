@@ -17,7 +17,7 @@ class HyperParameters:
     """
     Easy to manage HyperParameters
     """
-    n_epochs = 4
+    n_epochs = 20
     n_batches = 1000
     target_loss = 1e-5
     thresh_hold = 1e-5
@@ -60,7 +60,8 @@ if __name__ == "__main__":
     while (epoch < params.n_epochs) or (epoch_loss_avg.result() < params.target_loss):
         epoch += 1
         epoch_loss_avg = tf.keras.metrics.Mean()
-        epoch_acc_avg = tf.keras.metrics.Mean()
+        epoch_train_acc_avg = tf.keras.metrics.Mean()
+        epoch_test_acc_avg = tf.keras.metrics.Mean()
         for x, y in train_dataset:
             with tf.GradientTape() as tape:
                 out = model(x)
@@ -68,13 +69,14 @@ if __name__ == "__main__":
                 variables = model.trainable_variables
                 grads = tape.gradient(batch_loss, variables)
                 optimizer.apply_gradients(zip(grads, variables))
+            epoch_train_acc_avg(cal_acc(out, y))
             epoch_loss_avg(batch_loss)
-        if epoch%1 == 0:
+        if epoch % 1 == 0:
             print(model.summary())
         for x, y in test_dataset:
             test_out = model(x)
-            accuracy = cal_acc(test_out, y)
-            epoch_acc_avg(accuracy)
+            epoch_test_acc_avg(cal_acc(test_out, y))
         model.sparsify_weights(params.thresh_hold)
         model.add_layer()
-        print('Epoch : {} ----- Loss : {} ----- Acc : {}'.format(epoch, epoch_loss_avg.result(), epoch_acc_avg.result()))
+        print('Epoch : {} ----- Loss : {:.4f} ----- Train acc : {:.4f} ----- Test Acc : {:.4f}'.format(
+            epoch, epoch_loss_avg.result(), epoch_train_acc_avg.result(), epoch_test_acc_avg.result()))
