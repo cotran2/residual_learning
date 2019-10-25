@@ -76,7 +76,7 @@ class DenseModel(tf.keras.Model):
         sparsified_weights.append(w*bool_mask)
     self.list_dense[-1].set_weights(sparsified_weights)
 class CNNModel(tf.keras.Model):
-  def __init__(self, n_filters = 64,n_kernels = 3,n_outputs = 10, inp_shape = (28,28)):
+  def __init__(self, n_filters = 64,n_kernels = 3,n_outputs = 10, inp_shape = (28,28),regularizer = None):
     """
     Adaptive layer-wise training model
     :param n_filters: number of filters
@@ -91,32 +91,40 @@ class CNNModel(tf.keras.Model):
     self.n_outputs = n_outputs
     self.num_layers = 1
     self.inp_shape = inp_shape
-
+    self.regularizer = regularizer
     if self.conv_dim == 1:
         self.input_layer = layers.Conv1D(self.n_filters, (self.n_kernels),
-                                         activation = None,
+                                         activation = "linear",
                                          input_shape = self.inp_shape,
                                          padding = "same",
-                                         name ='cnn_input'
+                                         name ='cnn_input',
+                                         kernel_regularizer = self.regularizer,
+                                         bias_regularizer = self.regularizer
                                         )
-        self.input_layer = layers.Conv1D(self.n_filters, (self.n_kernels),
-                                         activation=None,
+        self.output_layer = layers.Conv1D(self.n_kernels, (self.n_kernels),
+                                         activation="linear",
                                          input_shape=(None, self.inp_shape[0], self.n_filters),
                                          padding="same",
-                                         name='cnn_input'
+                                         name='cnn_input',
+                                         kernel_regularizer=self.regularizer,
+                                         bias_regularizer=self.regularizer
                                          )
     elif self.conv_dim == 2:
         self.input_layer = layers.Conv2D(self.n_filters, (self.n_kernels,self.n_kernels),
-                                         activation=None,
+                                         activation="linear",
                                          input_shape=self.inp_shape,
                                          padding = "same",
-                                         name='cnn_input'
+                                         name='cnn_input',
+                                         kernel_regularizer=self.regularizer,
+                                         bias_regularizer=self.regularizer
                                          )
         self.output_layer = layers.Conv2D(self.n_kernels, (self.n_kernels, self.n_kernels),
-                                         activation= None,
+                                         activation= "linear",
                                          input_shape=(None, self.inp_shape[0],self.inp_shape[1], self.n_filters),
                                          padding="same",
-                                         name="cnn_output"
+                                         name="cnn_output",
+                                         kernel_regularizer=self.regularizer,
+                                         bias_regularizer=self.regularizer
                                          )
     self.list_cnn = [self.input_layer]
     self.flatten = layers.Flatten()
@@ -145,19 +153,29 @@ class CNNModel(tf.keras.Model):
     """
     self.num_layers += 1
     if self.conv_dim == 1:
-        new_cnn = layers.Conv1D(self.n_filters, (self.n_kernels),
-                                         activation='relu',
-                                         input_shape=(None, self.inp_shape[0], self.n_filters),
-                                         padding="same",
-                                         name='cnn_1d_{}'.format(self.num_layers-1)
-                                         )
+        new_cnn = layers.Conv1D(self.n_filters,
+                                (self.n_kernels),
+                                activation='relu',
+                                input_shape=(None, self.inp_shape[0], self.n_filters),
+                                padding="same",
+                                name='cnn_1d_{}'.format(self.num_layers-1),
+                                kernel_initializer = initializers.get("zeros"),
+                                bias_initializer=initializers.get("zeros"),
+                                kernel_regularizer=self.regularizer,
+                                bias_regularizer=self.regularizer
+                                )
     elif self.conv_dim == 2:
-        new_cnn = layers.Conv2D(self.n_filters, (self.n_kernels, self.n_kernels),
-                                         activation='relu',
-                                         input_shape=(None, self.inp_shape[0],self.inp_shape[1], self.n_filters),
-                                         padding="same",
-                                         name='cnn_2d_{}'.format(self.num_layers-1)
-                                         )
+        new_cnn = layers.Conv2D(self.n_filters,
+                                (self.n_kernels, self.n_kernels),
+                                activation='relu',
+                                input_shape=(None, self.inp_shape[0],self.inp_shape[1], self.n_filters),
+                                padding="same",
+                                name='cnn_2d_{}'.format(self.num_layers-1),
+                                kernel_initializer=initializers.get("zeros"),
+                                bias_initializer=initializers.get("zeros"),
+                                kernel_regularizer=self.regularizer,
+                                bias_regularizer=self.regularizer
+                                )
     self.list_cnn.append(new_cnn)
     for index in range(1,self.num_layers-1):
       self.list_cnn[index].trainable = False
