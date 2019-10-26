@@ -76,7 +76,13 @@ class DenseModel(tf.keras.Model):
         sparsified_weights.append(w*bool_mask)
     self.list_dense[-1].set_weights(sparsified_weights)
 class CNNModel(tf.keras.Model):
-  def __init__(self, n_filters = 64,n_kernels = 3,n_outputs = 10, inp_shape = (28,28),regularizer = None, pool= None):
+  def __init__(self, n_filters = 64,
+               n_kernels = 3,
+               n_outputs = 10,
+               inp_shape = (28,28),
+               regularizer = None,
+               intializer = None,
+               pool= None):
     """
     Adaptive layer-wise training model
     :param n_filters: number of filters
@@ -87,6 +93,7 @@ class CNNModel(tf.keras.Model):
     super(CNNModel, self).__init__()
     self.conv_dim = len(inp_shape)-1
     self.n_filters = n_filters
+    self.initializer = intializer
     self.n_kernels = n_kernels
     self.projection = 1
     self.n_outputs = n_outputs
@@ -144,7 +151,7 @@ class CNNModel(tf.keras.Model):
         out = layer(inputs)
       else:
         prev_out = out
-        out = prev_out + layer(out)
+        out = tf.nn.relu(prev_out + layer(out))
     out = self.output_layer(out)
     out = self.pool(out)
     out = self.flatten(out)
@@ -163,7 +170,7 @@ class CNNModel(tf.keras.Model):
                                 input_shape=(None, self.inp_shape[0], self.n_filters),
                                 padding="same",
                                 name='cnn_1d_{}'.format(self.num_layers-1),
-                                kernel_initializer = initializers.get("zeros"),
+                                kernel_initializer = initializers.get(self.initializer),
                                 bias_initializer=initializers.get("zeros"),
                                 kernel_regularizer=self.regularizer,
                                 bias_regularizer=self.regularizer
@@ -175,7 +182,7 @@ class CNNModel(tf.keras.Model):
                                 input_shape=(None, self.inp_shape[0],self.inp_shape[1], self.n_filters),
                                 padding="same",
                                 name='cnn_2d_{}'.format(self.num_layers-1),
-                                kernel_initializer=initializers.get("zeros"),
+                                kernel_initializer=initializers.get(self.initializer),
                                 bias_initializer=initializers.get("zeros"),
                                 kernel_regularizer=self.regularizer,
                                 bias_regularizer=self.regularizer

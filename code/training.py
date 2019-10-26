@@ -33,7 +33,8 @@ class HyperParameters:
     n_kernels = 3
     n_outputs = 100
     inp_shape = None
-
+    intializer = "RandomNormal"
+    
 def train(params):
     """
         Load data
@@ -51,11 +52,16 @@ def train(params):
     if params.layer_type == "dense":
         model = DenseModel(params.n_hiddens, params.n_inputs, params.n_outputs)
     elif params.layer_type == "cnn":
-        model = CNNModel(params.n_filters, params.n_kernels, params.n_outputs, params.inp_shape, params.regularizer)
+        model = CNNModel(params.n_filters,
+                         params.n_kernels,
+                         params.n_outputs,
+                         params.inp_shape,
+                         params.regularizer,
+                         params.intializer)
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
-    test_log_dir = 'logs/gradient_tape/' + current_time + '/test'
+    train_log_dir = 'logs/gradient_tape/' + '/train'
+    test_log_dir = 'logs/gradient_tape/'  + '/test'
     train_summary_writer = tf.summary.create_file_writer(train_log_dir)
     test_summary_writer = tf.summary.create_file_writer(test_log_dir)
     epoch_train_loss_avg = tf.keras.metrics.Mean()
@@ -99,7 +105,7 @@ def train(params):
         if epoch % 1 == 0:
             print(model.summary())
         # model.sparsify_weights(params.thresh_hold)
-        model.add_layer(freeze=False)
+        model.add_layer(freeze=True)
         print('Epoch : {} | Train loss : {:.3f} | Train acc : {:.3f} | Test loss : {:.3f} | Test acc : {:.3f}'.format(
             epoch,
             epoch_train_loss_avg.result(),
@@ -110,7 +116,7 @@ def train(params):
         epoch_test_loss_avg.reset_states()
         epoch_train_acc_avg.reset_states()
         epoch_test_acc_avg.reset_states()
-
+        prev_loss = epoch_train_loss_avg.result()
 if __name__ == "__main__":
     params = HyperParameters
     train(params)
