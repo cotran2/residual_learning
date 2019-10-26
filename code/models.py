@@ -88,42 +88,39 @@ class CNNModel(tf.keras.Model):
     self.conv_dim = len(inp_shape)-1
     self.n_filters = n_filters
     self.n_kernels = n_kernels
+    self.projection = 1
     self.n_outputs = n_outputs
     self.num_layers = 1
     self.inp_shape = inp_shape
     self.regularizer = regularizer
     self.pool = pool
     if self.conv_dim == 1:
-        self.input_layer = layers.Conv1D(self.n_filters, (self.n_kernels),
+        self.input_layer = layers.Conv1D(self.n_filters, (self.projection),
                                          activation = "linear",
                                          input_shape = self.inp_shape,
-                                         padding = "same",
                                          name ='cnn_input',
                                          kernel_regularizer = self.regularizer,
                                          bias_regularizer = self.regularizer
                                         )
-        self.output_layer = layers.Conv1D(self.n_kernels, (self.n_kernels),
+        self.output_layer = layers.Conv1D(self.n_kernels, (self.projection),
                                          activation="linear",
                                          input_shape=(None, self.inp_shape[0], self.n_filters),
-                                         padding="same",
-                                         name='cnn_input',
+                                         name='cnn_output',
                                          kernel_regularizer=self.regularizer,
                                          bias_regularizer=self.regularizer
                                          )
         self.pool = layers.MaxPool1D()
     elif self.conv_dim == 2:
-        self.input_layer = layers.Conv2D(self.n_filters, (self.n_kernels,self.n_kernels),
+        self.input_layer = layers.Conv2D(self.n_filters, (self.projection,self.projection),
                                          activation="linear",
                                          input_shape=self.inp_shape,
-                                         padding = "same",
                                          name='cnn_input',
                                          kernel_regularizer=self.regularizer,
                                          bias_regularizer=self.regularizer
                                          )
-        self.output_layer = layers.Conv2D(self.n_kernels, (self.n_kernels, self.n_kernels),
+        self.output_layer = layers.Conv2D(self.n_kernels, (self.projection, self.projection),
                                          activation= "linear",
                                          input_shape=(None, self.inp_shape[0],self.inp_shape[1], self.n_filters),
-                                         padding="same",
                                          name="cnn_output",
                                          kernel_regularizer=self.regularizer,
                                          bias_regularizer=self.regularizer
@@ -153,7 +150,7 @@ class CNNModel(tf.keras.Model):
     out = self.flatten(out)
     out = self.classify(out,activation_function = None)
     return out
-  def add_layer(self):
+  def add_layer(self, freeze = True):
     """
     add an layer to the model
     :return:
@@ -184,8 +181,9 @@ class CNNModel(tf.keras.Model):
                                 bias_regularizer=self.regularizer
                                 )
     self.list_cnn.append(new_cnn)
-    for index in range(1,self.num_layers-1):
-      self.list_cnn[index].trainable = False
+    if freeze:
+        for index in range(1,self.num_layers-1):
+          self.list_cnn[index].trainable = False
   def sparsify_weights(self, threshold = 1e-6):
     """
     sparsify the last added cnn layer
