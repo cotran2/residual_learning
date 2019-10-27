@@ -157,40 +157,45 @@ class CNNModel(tf.keras.Model):
     out = self.flatten(out)
     out = self.classify(out,activation_function = None)
     return out
-  def add_layer(self, freeze = True):
+  def add_layer(self, freeze = True, add = True):
     """
     add an layer to the model
     :return:
     """
-    self.num_layers += 1
-    if self.conv_dim == 1:
-        new_cnn = layers.Conv1D(self.n_filters,
-                                (self.n_kernels),
-                                activation='relu',
-                                input_shape=(None, self.inp_shape[0], self.n_filters),
-                                padding="same",
-                                name='cnn_1d_{}'.format(self.num_layers-1),
-                                kernel_initializer = initializers.get(self.initializer),
-                                bias_initializer=initializers.get("zeros"),
-                                kernel_regularizer=self.regularizer,
-                                bias_regularizer=self.regularizer
-                                )
-    elif self.conv_dim == 2:
-        new_cnn = layers.Conv2D(self.n_filters,
-                                (self.n_kernels, self.n_kernels),
-                                activation='relu',
-                                input_shape=(None, self.inp_shape[0],self.inp_shape[1], self.n_filters),
-                                padding="same",
-                                name='cnn_2d_{}'.format(self.num_layers-1),
-                                kernel_initializer=initializers.get(self.initializer),
-                                bias_initializer=initializers.get("zeros"),
-                                kernel_regularizer=self.regularizer,
-                                bias_regularizer=self.regularizer
-                                )
-    self.list_cnn.append(new_cnn)
+    if add:
+        self.num_layers += 1
+        if self.conv_dim == 1:
+            new_cnn = layers.Conv1D(self.n_filters,
+                                    (self.n_kernels),
+                                    activation='sigmoid',
+                                    input_shape=(None, self.inp_shape[0], self.n_filters),
+                                    padding="same",
+                                    name='cnn_1d_{}'.format(self.num_layers-1),
+                                    kernel_initializer = initializers.get(self.initializer),
+                                    bias_initializer=initializers.get("zeros"),
+                                    kernel_regularizer=self.regularizer,
+                                    bias_regularizer=self.regularizer
+                                    )
+        elif self.conv_dim == 2:
+            new_cnn = layers.Conv2D(self.n_filters,
+                                    (self.n_kernels, self.n_kernels),
+                                    activation='sigmoid',
+                                    input_shape=(None, self.inp_shape[0],self.inp_shape[1], self.n_filters),
+                                    padding="same",
+                                    name='cnn_2d_{}'.format(self.num_layers-1),
+                                    kernel_initializer=initializers.get(self.initializer),
+                                    bias_initializer=initializers.get("zeros"),
+                                    kernel_regularizer=self.regularizer,
+                                    bias_regularizer=self.regularizer
+                                    )
+        self.list_cnn.append(new_cnn)
+
     if freeze:
         for index in range(1,self.num_layers-1):
           self.list_cnn[index].trainable = False
+    else:
+        for index in range(1,self.num_layers-1):
+          self.list_cnn[index].trainable = True
   def sparsify_weights(self, threshold = 1e-6):
     """
     sparsify the last added cnn layer
