@@ -108,10 +108,11 @@ def train(params):
         if epoch == 1:
             model.add_layer(freeze=True)
             print("Number of layer : {}".format(model.num_layers))
-        elif abs(prev_loss - epoch_train_loss_avg.result()) <= 0.03:
+        elif abs(prev_loss - epoch_train_loss_avg.result().numpy()) <= 0.03:
             model.add_layer(freeze=True, add = True)
             print("Number of layer : {}".format(model.num_layers))
         else:
+            print(prev_loss, epoch_train_loss_avg.result().numpy())
             model.add_layer(freeze=False,add=False)
         print('Epoch : {} | Train loss : {:.3f} | Train acc : {:.3f} | Test loss : {:.3f} | Test acc : {:.3f}'.format(
             epoch,
@@ -119,11 +120,12 @@ def train(params):
             epoch_train_acc_avg.result(),
             epoch_test_loss_avg.result(),
             epoch_test_acc_avg.result()))
+        prev_loss = float(epoch_train_loss_avg.result().numpy())
         epoch_train_loss_avg.reset_states()
         epoch_test_loss_avg.reset_states()
         epoch_train_acc_avg.reset_states()
         epoch_test_acc_avg.reset_states()
-        prev_loss = epoch_train_loss_avg.result()
+
 if __name__ == "__main__":
     params = HyperParameters
     train(params)
