@@ -69,6 +69,7 @@ class DenseModel(tf.keras.Model):
     for index in range(len(self.layers)-2):
       self.layers[index].trainable = False
   def sparsify_weights(self, threshold = 1e-6):
+
     weights = self.list_dense[-1].get_weights()
     sparsified_weights = []
     for w in weights:

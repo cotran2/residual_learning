@@ -64,6 +64,7 @@ def train(params):
     test_log_dir = 'logs/gradient_tape/'  + current_time + '/test'
     train_summary_writer = tf.summary.create_file_writer(train_log_dir)
     test_summary_writer = tf.summary.create_file_writer(test_log_dir)
+    l2_norm = lambda t: tf.sqrt(tf.reduce_sum(tf.pow(t, 2)))
     epoch_train_loss_avg = tf.keras.metrics.Mean()
     epoch_test_loss_avg = tf.keras.metrics.Mean()
     epoch_train_acc_avg = tf.keras.metrics.Mean()
@@ -98,6 +99,8 @@ def train(params):
             tf.summary.scalar('accuracy', epoch_train_acc_avg.result(), step=epoch)
             for w in model.weights:
                 tf.summary.histogram(w.name, w, step=epoch)
+            for gradient, variable in zip(grads,variables):
+                tf.summary.histogram("gradients_norm/" + variable.name, l2_norm(gradient),step = epoch)
         # Test
         for x, y in test_dataset:
             test_out = model(x)
@@ -114,7 +117,7 @@ def train(params):
         if abs(prev_loss - epoch_train_loss_avg.result().numpy()) <= 0.01*epoch_train_loss_avg.result().numpy():
             model.add_layer(freeze=True, add = True)
             print("Number of layer : {}".format(model.num_layers))
-            tf.variables_initializer(optimizer.variables())
+            opt_reset = tf.group([v.initializer for v in optimizer.variables()])
         else:
             print(prev_loss, epoch_train_loss_avg.result().numpy())
             model.add_layer(freeze=False,add=False)
