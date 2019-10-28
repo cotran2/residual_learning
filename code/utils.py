@@ -20,8 +20,6 @@ def get_data(params):
     x_train = tf.image.per_image_standardization(x_train)
     x_test = tf.image.per_image_standardization(x_test)
 
-
-
     if params.dataset == "mnist" and params.layer_type == "dense":
         x_train = tf.reshape(x_train, (len(x_train), 28 * 28))
         x_test = tf.reshape(x_test, (len(x_test), 28 * 28))
@@ -37,26 +35,13 @@ def get_data(params):
     elif params.dataset in ["cifar10", "mnist"] and params.layer_type == "cnn":
         params.n_outputs = 10
         params.inp_shape = x_train.shape[1:]
+        params.n_layers = 10
     elif params.dataset == "cifar100" and params.layer_type == "cnn":
         params.n_outputs = 100
         params.inp_shape = x_train.shape[1:]
-
+        params.n_layers = 15
     x_train = tf.cast(x_train,tf.float32)
     x_test = tf.cast(x_test, tf.float32)
     y_train = tf.cast(y_train, tf.int32)
     y_test = tf.cast(y_test, tf.int32)
     return x_train,y_train,x_test,y_test,params
-
-def per_image_normalization(X, constant=10.0, copy=True, image = True):
-    if copy:
-        X_res = X.copy()
-    else:
-        X_res = X
-    if image:
-        X_res = np.reshape(X_res,(X_res.shape[0],np.prod(X_res.shape[1:])))
-    means = np.mean(X, axis=1)
-    variances = np.var(X, axis=1) + constant
-    X_res = (X_res.T - means).T
-    X_res = (X_res.T / np.sqrt(variances)).T
-    return X_res
-

@@ -18,22 +18,24 @@ class HyperParameters:
     """
     Easy to manage
     """
+    n_layers = 8
     n_epochs = 100
     n_batches = 1000
     target_loss = 1e-5
     thresh_hold = 1e-5
-    dataset = "mnist"
+    dataset = "cifar10"
     regularizer = None
     layer_type = "cnn"
     seed = 1234
     n_inputs = 28 * 28
     n_outputs = 10
     n_hiddens = 784
-    n_filters = 16
+    n_filters = 64
     n_kernels = 3
     n_outputs = 100
     inp_shape = None
     intializer = "zeros"
+    residual = True
 
 def train(params):
     """
@@ -56,6 +58,7 @@ def train(params):
                          params.n_kernels,
                          params.n_outputs,
                          params.inp_shape,
+                         params.residual,
                          params.regularizer,
                          params.intializer)
     optimizer = tf.keras.optimizers.Adam()
@@ -65,6 +68,7 @@ def train(params):
     train_summary_writer = tf.summary.create_file_writer(train_log_dir)
     test_summary_writer = tf.summary.create_file_writer(test_log_dir)
     l2_norm = lambda t: tf.sqrt(tf.reduce_sum(tf.pow(t, 2)))
+    opt_reset = tf.group([v.initializer for v in optimizer.variables()])
     epoch_train_loss_avg = tf.keras.metrics.Mean()
     epoch_test_loss_avg = tf.keras.metrics.Mean()
     epoch_train_acc_avg = tf.keras.metrics.Mean()
@@ -94,6 +98,7 @@ def train(params):
                 optimizer.apply_gradients(zip(grads, variables))
             epoch_train_acc_avg(cal_acc(out, y))
             epoch_train_loss_avg(batch_loss)
+        #tensorboard writer - loss - weights histograms - gradient histograms
         with train_summary_writer.as_default():
             tf.summary.scalar('loss', epoch_train_loss_avg.result(), step=epoch)
             tf.summary.scalar('accuracy', epoch_train_acc_avg.result(), step=epoch)
@@ -110,17 +115,16 @@ def train(params):
             tf.summary.scalar('loss', epoch_test_loss_avg.result(), step=epoch)
             tf.summary.scalar('accuracy', epoch_test_acc_avg.result(), step=epoch)
         # post action
-        # if epoch % 1 == 0:
-        #     print(model.summary())
         # model.sparsify_weights(params.thresh_hold)
 
         if abs(prev_loss - epoch_train_loss_avg.result().numpy()) <= 0.01*epoch_train_loss_avg.result().numpy():
             model.add_layer(freeze=True, add = True)
             print("Number of layer : {}".format(model.num_layers))
-            opt_reset = tf.group([v.initializer for v in optimizer.variables()])
+            opt_reset
         else:
             print(prev_loss, epoch_train_loss_avg.result().numpy())
             model.add_layer(freeze=False,add=False)
+            print(model.summary())
         print('Epoch : {} | Train loss : {:.3f} | Train acc : {:.3f} | Test loss : {:.3f} | Test acc : {:.3f}'.format(
             epoch,
             epoch_train_loss_avg.result(),
