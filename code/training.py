@@ -109,22 +109,23 @@ def train(params):
         # Test
         for x, y in test_dataset:
             test_out = model(x)
-            epoch_test_loss_avg(my_loss(test_out, y, params.n_outputs))
+            test_loss = my_loss(test_out, y, params.n_outputs)
+            epoch_test_loss_avg(test_loss)
             epoch_test_acc_avg(cal_acc(test_out, y))
         with test_summary_writer.as_default():
             tf.summary.scalar('loss', epoch_test_loss_avg.result(), step=epoch)
             tf.summary.scalar('accuracy', epoch_test_acc_avg.result(), step=epoch)
         # post action
         # model.sparsify_weights(params.thresh_hold)
-
-        if abs(prev_loss - epoch_train_loss_avg.result().numpy()) <= 0.01*epoch_train_loss_avg.result().numpy():
+        cond_1 = abs(prev_loss - epoch_train_loss_avg.result().numpy()) <= 0.01*epoch_train_loss_avg.result().numpy()
+        cond_2 = prev_val_loss - epoch_test_loss_avg.result().numpy() > 0.01*epoch_test_loss_avg.result().numpy()
+        if cond_1 or cond_2:
             model.add_layer(freeze=True, add = True)
             print("Number of layer : {}".format(model.num_layers))
             opt_reset
         else:
             print(prev_loss, epoch_train_loss_avg.result().numpy())
             model.add_layer(freeze=False,add=False)
-            print(model.summary())
         print('Epoch : {} | Train loss : {:.3f} | Train acc : {:.3f} | Test loss : {:.3f} | Test acc : {:.3f}'.format(
             epoch,
             epoch_train_loss_avg.result(),
@@ -132,6 +133,7 @@ def train(params):
             epoch_test_loss_avg.result(),
             epoch_test_acc_avg.result()))
         prev_loss = float(epoch_train_loss_avg.result().numpy())
+        prev_val_loss = float(epoch_test_loss_avg.result().numpy())
         epoch_train_loss_avg.reset_states()
         epoch_test_loss_avg.reset_states()
         epoch_train_acc_avg.reset_states()
