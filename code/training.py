@@ -22,18 +22,18 @@ class HyperParameters:
     n_batches = 1000
     target_loss = 1e-5
     thresh_hold = 1e-5
-    dataset = "cifar10"
+    dataset = "mnist"
     regularizer = None
     layer_type = "cnn"
     seed = 1234
     n_inputs = 28 * 28
     n_outputs = 10
     n_hiddens = 784
-    n_filters = 64
+    n_filters = 16
     n_kernels = 3
     n_outputs = 100
     inp_shape = None
-    intializer = "RandomNormal"
+    intializer = "zeros"
 
 def train(params):
     """
@@ -76,9 +76,14 @@ def train(params):
         Train data
     """
     epoch = 0
+    prev_loss = 0
     while (epoch < params.n_epochs) or (epoch_train_loss_avg.result() < params.target_loss):
         epoch += 1
         # Train
+        if epoch == 1:
+            model.add_layer(freeze=True)
+            print("Number of layer : {}".format(model.num_layers))
+
         for x, y in train_dataset:
             with tf.GradientTape() as tape:
                 out = model(x)
@@ -105,12 +110,11 @@ def train(params):
         # if epoch % 1 == 0:
         #     print(model.summary())
         # model.sparsify_weights(params.thresh_hold)
-        if epoch == 1:
-            model.add_layer(freeze=True)
-            print("Number of layer : {}".format(model.num_layers))
-        elif abs(prev_loss - epoch_train_loss_avg.result().numpy()) <= 0.03:
+
+        if abs(prev_loss - epoch_train_loss_avg.result().numpy()) <= 0.01*epoch_train_loss_avg.result().numpy():
             model.add_layer(freeze=True, add = True)
             print("Number of layer : {}".format(model.num_layers))
+            tf.variables_initializer(optimizer.variables())
         else:
             print(prev_loss, epoch_train_loss_avg.result().numpy())
             model.add_layer(freeze=False,add=False)

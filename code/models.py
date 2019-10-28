@@ -167,7 +167,7 @@ class CNNModel(tf.keras.Model):
         if self.conv_dim == 1:
             new_cnn = layers.Conv1D(self.n_filters,
                                     (self.n_kernels),
-                                    activation='sigmoid',
+                                    activation='linear',
                                     input_shape=(None, self.inp_shape[0], self.n_filters),
                                     padding="same",
                                     name='cnn_1d_{}'.format(self.num_layers-1),
@@ -179,7 +179,7 @@ class CNNModel(tf.keras.Model):
         elif self.conv_dim == 2:
             new_cnn = layers.Conv2D(self.n_filters,
                                     (self.n_kernels, self.n_kernels),
-                                    activation='sigmoid',
+                                    activation='linear',
                                     input_shape=(None, self.inp_shape[0],self.inp_shape[1], self.n_filters),
                                     padding="same",
                                     name='cnn_2d_{}'.format(self.num_layers-1),
