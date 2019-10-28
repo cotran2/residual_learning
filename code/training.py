@@ -118,14 +118,15 @@ def train(params):
         # post action
         # model.sparsify_weights(params.thresh_hold)
         cond_1 = abs(prev_loss - epoch_train_loss_avg.result().numpy()) <= 0.01*epoch_train_loss_avg.result().numpy()
-        cond_2 = prev_val_loss - epoch_test_loss_avg.result().numpy() > 0.01*epoch_test_loss_avg.result().numpy()
+        cond_2 = prev_val_loss - epoch_test_loss_avg.result().numpy() < 0.01*epoch_test_loss_avg.result().numpy()
         if cond_1 or cond_2:
             model.add_layer(freeze=True, add = True)
             print("Number of layer : {}".format(model.num_layers))
             opt_reset
-        else:
-            print(prev_loss, epoch_train_loss_avg.result().numpy())
+        elif model.num_layers<=5:
             model.add_layer(freeze=False,add=False)
+        else:
+            model.add_layer(freeze=True, add= False)
         print('Epoch : {} | Train loss : {:.3f} | Train acc : {:.3f} | Test loss : {:.3f} | Test acc : {:.3f}'.format(
             epoch,
             epoch_train_loss_avg.result(),
