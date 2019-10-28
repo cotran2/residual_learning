@@ -36,18 +36,20 @@ class HyperParameters:
     inp_shape = None
     intializer = "zeros"
     residual = True
-
-def train(params):
+def train(params, test = False):
     """
         Load data
     """
     tf.random.set_seed(params.seed)
     x_train, y_train, x_test, y_test, params = get_data(params)
 
-    train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train)).shuffle(
-        8192, seed=params.seed).batch(params.n_batches)
+    full_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train)).shuffle(
+        8192, seed=params.seed)
     test_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test)).shuffle(
         8192, seed=params.seed).batch(params.n_batches)
+    train_size = int(0.8 * len(x_train))
+    train_dataset = full_dataset.take(train_size).batch(params.n_batches)
+    val_dataset = full_dataset.skip(train_size).batch(params.n_batches)
     """
         Set model and log directories
     """
@@ -70,9 +72,9 @@ def train(params):
     l2_norm = lambda t: tf.sqrt(tf.reduce_sum(tf.pow(t, 2)))
     opt_reset = tf.group([v.initializer for v in optimizer.variables()])
     epoch_train_loss_avg = tf.keras.metrics.Mean()
-    epoch_test_loss_avg = tf.keras.metrics.Mean()
+    epoch_val_loss_avg = tf.keras.metrics.Mean()
     epoch_train_acc_avg = tf.keras.metrics.Mean()
-    epoch_test_acc_avg = tf.keras.metrics.Mean()
+    epoch_val_acc_avg = tf.keras.metrics.Mean()
     if not os.path.exists(train_log_dir):
         os.makedirs(train_summary_writer)
     if not os.path.exists(test_log_dir):
@@ -82,6 +84,7 @@ def train(params):
     """
     epoch = 0
     prev_loss = 0
+    prev_val_loss = 1e4
     while (epoch < params.n_epochs) or (epoch_train_loss_avg.result() < params.target_loss):
         epoch += 1
         # Train
@@ -107,18 +110,18 @@ def train(params):
             for gradient, variable in zip(grads,variables):
                 tf.summary.histogram("gradients_norm/" + variable.name, l2_norm(gradient),step = epoch)
         # Test
-        for x, y in test_dataset:
-            test_out = model(x)
-            test_loss = my_loss(test_out, y, params.n_outputs)
-            epoch_test_loss_avg(test_loss)
-            epoch_test_acc_avg(cal_acc(test_out, y))
+        for x, y in val_dataset:
+            val_out = model(x)
+            val_loss = my_loss(val_out, y, params.n_outputs)
+            epoch_val_loss_avg(val_loss)
+            epoch_val_acc_avg(cal_acc(val_out, y))
         with test_summary_writer.as_default():
-            tf.summary.scalar('loss', epoch_test_loss_avg.result(), step=epoch)
-            tf.summary.scalar('accuracy', epoch_test_acc_avg.result(), step=epoch)
+            tf.summary.scalar('loss', epoch_val_loss_avg.result(), step=epoch)
+            tf.summary.scalar('accuracy', epoch_val_acc_avg.result(), step=epoch)
         # post action
         # model.sparsify_weights(params.thresh_hold)
         cond_1 = abs(prev_loss - epoch_train_loss_avg.result().numpy()) <= 0.01*epoch_train_loss_avg.result().numpy()
-        cond_2 = prev_val_loss - epoch_test_loss_avg.result().numpy() < 0.01*epoch_test_loss_avg.result().numpy()
+        cond_2 = prev_val_loss - epoch_val_loss_avg.result().numpy() < 0.01*epoch_val_loss_avg.result().numpy()
         if cond_1 or cond_2:
             model.add_layer(freeze=True, add = True)
             print("Number of layer : {}".format(model.num_layers))
@@ -131,18 +134,27 @@ def train(params):
             epoch,
             epoch_train_loss_avg.result(),
             epoch_train_acc_avg.result(),
-            epoch_test_loss_avg.result(),
-            epoch_test_acc_avg.result()))
+            epoch_val_loss_avg.result(),
+            epoch_val_acc_avg.result()))
         prev_loss = float(epoch_train_loss_avg.result().numpy())
-        prev_val_loss = float(epoch_test_loss_avg.result().numpy())
+        prev_val_loss = float(epoch_val_loss_avg.result().numpy())
         epoch_train_loss_avg.reset_states()
-        epoch_test_loss_avg.reset_states()
+        epoch_val_loss_avg.reset_states()
         epoch_train_acc_avg.reset_states()
-        epoch_test_acc_avg.reset_states()
-
+        epoch_val_acc_avg.reset_states()
+    if test:
+        epoch_test_loss_avg = tf.keras.metrics.Mean()
+        epoch_test_acc_avg = tf.keras.metrics.Mean()
+        for x, y in test_dataset:
+            test_out = model(x)
+            epoch_test_loss_avg(my_loss(test_out, y, params.n_outputs))
+            epoch_test_acc_avg(cal_acc(test_out, y))
+        return params,model, epoch_test_loss_avg.result(),epoch_test_acc_avg.result()
+    else:
+        return params,model
 if __name__ == "__main__":
     params = HyperParameters
-    train(params)
+    params,model = train(params)
 
 
 

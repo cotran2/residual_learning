@@ -159,7 +159,13 @@ class CNNModel(tf.keras.Model):
             self.n_outputs,shape = (None,self.class_inp),
             layer_name = 'classify',
             initializer = "RandomNormal")
+
     def call(self, inputs):
+        """
+        after define the model, when you call model(inputs), this function is implicitly applied.
+        :param inputs: (train dataset)
+        :return: out (logits without softmax)
+        """
         for index,layer in enumerate(self.list_cnn):
             if index == 0:
                 out = layer(inputs)
@@ -175,6 +181,7 @@ class CNNModel(tf.keras.Model):
         out = self.flatten(out)
         out = self.classify(out,activation_function = None)
         return out
+
     def add_layer(self, freeze = True, add = True):
         """
         add an layer to the model
