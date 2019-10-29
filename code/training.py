@@ -36,6 +36,7 @@ class HyperParameters:
     inp_shape = None
     intializer = "zeros"
     residual = True
+
 def train(params, test = False):
     """
         Load data
@@ -109,7 +110,7 @@ def train(params, test = False):
                 tf.summary.histogram(w.name, w, step=epoch)
             for gradient, variable in zip(grads,variables):
                 tf.summary.histogram("gradients_norm/" + variable.name, l2_norm(gradient),step = epoch)
-        # Test
+        # Validate
         for x, y in val_dataset:
             val_out = model(x)
             val_loss = my_loss(val_out, y, params.n_outputs)
@@ -120,6 +121,7 @@ def train(params, test = False):
             tf.summary.scalar('accuracy', epoch_val_acc_avg.result(), step=epoch)
         # post action
         # model.sparsify_weights(params.thresh_hold)
+        # Add layer depending on how the train + validate losses progress
         cond_1 = abs(prev_loss - epoch_train_loss_avg.result().numpy()) <= 0.01*epoch_train_loss_avg.result().numpy()
         cond_2 = prev_val_loss - epoch_val_loss_avg.result().numpy() < 0.01*epoch_val_loss_avg.result().numpy()
         if cond_1 or cond_2:
@@ -142,6 +144,7 @@ def train(params, test = False):
         epoch_val_loss_avg.reset_states()
         epoch_train_acc_avg.reset_states()
         epoch_val_acc_avg.reset_states()
+    #Finish training, testing time!
     if test:
         epoch_test_loss_avg = tf.keras.metrics.Mean()
         epoch_test_acc_avg = tf.keras.metrics.Mean()
@@ -154,7 +157,7 @@ def train(params, test = False):
         return params,model
 if __name__ == "__main__":
     params = HyperParameters
-    params,model = train(params)
+    results = train(params)
 
 
 

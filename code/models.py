@@ -94,7 +94,7 @@ class CNNModel(tf.keras.Model):
                residual=True,
                regularizer = None,
                intializer = None,
-               pool= None
+               use_pool= None
                ):
         """
         Adaptive layer-wise training model
@@ -113,7 +113,7 @@ class CNNModel(tf.keras.Model):
         self.num_layers = 1
         self.inp_shape = inp_shape
         self.regularizer = regularizer
-        self.pool = pool
+        self.use_pool = use_pool
         self.residual = residual
         if self.conv_dim == 1:
             self.input_layer = layers.Conv1D(self.n_filters, (self.projection),
@@ -151,7 +151,7 @@ class CNNModel(tf.keras.Model):
         self.flatten = layers.Flatten()
 
         #compute input shape after flatten for the dense layer
-        if not self.pool:
+        if not self.use_pool:
             self.class_inp = np.prod(self.inp_shape[:-1])*self.n_kernels
         else:
             self.class_inp = np.prod(self.inp_shape[:-1])*self.n_kernels//(2**self.conv_dim)
@@ -176,7 +176,7 @@ class CNNModel(tf.keras.Model):
                 else:
                     out = layer(out)
         out = self.output_layer(out)
-        if self.pool:
+        if self.use_pool:
             out = self.pool(out)
         out = self.flatten(out)
         out = self.classify(out,activation_function = None)
