@@ -19,10 +19,10 @@ class HyperParameters:
     Easy to manage
     """
     n_layers = 8
-    n_epochs = 100
+    n_epochs = 200
     n_batches = 1000
     target_loss = 1e-5
-    thresh_hold = 1e-5
+    thresh_hold = 1e-3
     dataset = "cifar10"
     regularizer = None
     layer_type = "cnn"
@@ -37,7 +37,7 @@ class HyperParameters:
     intializer = "zeros"
     residual = True
 
-def train(params, test = False):
+def run(params, test = False):
     """
         Load data
     """
@@ -65,6 +65,11 @@ def train(params, test = False):
                          params.regularizer,
                          params.intializer)
     optimizer = tf.keras.optimizers.Adam()
+    objective = tf.keras.losses.SparseCategoricalCrossentropy()
+    metric = tf.keras.metrics.SparseCategoricalAccuracy()
+    """
+        Logs - tensorboard setting
+    """
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
     test_log_dir = 'logs/gradient_tape/'  + current_time + '/test'
@@ -81,26 +86,49 @@ def train(params, test = False):
     if not os.path.exists(test_log_dir):
         os.makedirs(test_summary_writer)
     """
+        Train + evaluation tf functions
+    """
+
+    @tf.function
+    def train_step(images = None, labels = None, metric = metric, loss_function = objective):
+        with tf.GradientTape() as tape:
+            out = model(images)
+            batch_loss = loss_function(labels,out)
+        variables = model.trainable_variables
+        grads = tape.gradient(batch_loss, variables)
+        optimizer.apply_gradients(zip(grads, variables))
+        metric.update_state(labels,out)
+
+        return batch_loss
+
+
+    @tf.function
+    def evaluation_step(images = None, labels = None, metric = metric, loss_function = objective):
+        out = model(images)
+        batch_loss = loss_function(labels,out)
+        metric.update_state(labels,out)
+
+        return batch_loss
+    """
         Train data
     """
     epoch = 0
     prev_loss = 0
     prev_val_loss = 1e4
-    while (epoch < params.n_epochs) or (epoch_train_loss_avg.result() < params.target_loss):
+    add_layer_epoch = dict()
+    while (epoch < params.n_epochs) and (epoch_train_loss_avg.result() < params.target_loss):
         epoch += 1
         # Train
         if epoch == 1:
             model.add_layer(freeze=True)
+            add_layer_epoch[model.num_layers] = epoch
             print("Number of layer : {}".format(model.num_layers))
-
+            print(model.name)
+        metric.reset_states()
         for x, y in train_dataset:
             with tf.GradientTape() as tape:
-                out = model(x)
-                batch_loss = my_loss(out, y, params.n_outputs)
-                variables = model.trainable_variables
-                grads = tape.gradient(batch_loss, variables)
-                optimizer.apply_gradients(zip(grads, variables))
-            epoch_train_acc_avg(cal_acc(out, y))
+                batch_loss = train_step(x,y)
+            epoch_train_acc_avg(metric.result())
             epoch_train_loss_avg(batch_loss)
         #tensorboard writer - loss - weights histograms - gradient histograms
         with train_summary_writer.as_default():
@@ -108,30 +136,36 @@ def train(params, test = False):
             tf.summary.scalar('accuracy', epoch_train_acc_avg.result(), step=epoch)
             for w in model.weights:
                 tf.summary.histogram(w.name, w, step=epoch)
-            for gradient, variable in zip(grads,variables):
-                tf.summary.histogram("gradients_norm/" + variable.name, l2_norm(gradient),step = epoch)
+            # for gradient, variable in zip(grads,variables):
+            #     tf.summary.histogram("gradients_norm/" + variable.name, l2_norm(gradient),step = epoch)
         # Validate
+        metric.reset_states()
         for x, y in val_dataset:
-            val_out = model(x)
-            val_loss = my_loss(val_out, y, params.n_outputs)
+            val_loss = evaluation_step(x,y)
             epoch_val_loss_avg(val_loss)
-            epoch_val_acc_avg(cal_acc(val_out, y))
+            epoch_val_acc_avg(metric.result())
         with test_summary_writer.as_default():
             tf.summary.scalar('loss', epoch_val_loss_avg.result(), step=epoch)
             tf.summary.scalar('accuracy', epoch_val_acc_avg.result(), step=epoch)
         # post action
         # model.sparsify_weights(params.thresh_hold)
         # Add layer depending on how the train + validate losses progress
-        cond_1 = abs(prev_loss - epoch_train_loss_avg.result().numpy()) <= 0.01*epoch_train_loss_avg.result().numpy()
-        cond_2 = prev_val_loss - epoch_val_loss_avg.result().numpy() < 0.01*epoch_val_loss_avg.result().numpy()
+        decay_coef = 0.01/float(model.num_layers)**2
+        cond_1 = abs(prev_loss - epoch_train_loss_avg.result().numpy()) < decay_coef*epoch_train_loss_avg.result().numpy()
+        cond_2 = abs(prev_val_loss - epoch_val_loss_avg.result().numpy()) < decay_coef*epoch_val_loss_avg.result().numpy()
+        cond_3 = epoch_train_acc_avg.result() - epoch_val_acc_avg.result() > 0.01
+
         if cond_1 or cond_2:
             model.add_layer(freeze=True, add = True)
-            print("Number of layer : {}".format(model.num_layers))
+            add_layer_epoch[model.num_layers] = epoch
+            print("Number of layer : {} and Decay Coef : {}".format(model.num_layers,decay_coef*100))
             opt_reset
-        elif model.num_layers<=5:
-            model.add_layer(freeze=False,add=False)
-        else:
-            model.add_layer(freeze=True, add= False)
+        if cond_3:
+            print("Overfitting condition")
+            model.use_batchnorm = True
+            model.use_dropout = True
+            model.update_regularizer()
+            model.sparsify_weights(params.thresh_hold)
         print('Epoch : {} | Train loss : {:.3f} | Train acc : {:.3f} | Test loss : {:.3f} | Test acc : {:.3f}'.format(
             epoch,
             epoch_train_loss_avg.result(),
@@ -148,16 +182,14 @@ def train(params, test = False):
     if test:
         epoch_test_loss_avg = tf.keras.metrics.Mean()
         epoch_test_acc_avg = tf.keras.metrics.Mean()
+        metric.reset_states()
         for x, y in test_dataset:
-            test_out = model(x)
-            epoch_test_loss_avg(my_loss(test_out, y, params.n_outputs))
-            epoch_test_acc_avg(cal_acc(test_out, y))
+            test_loss = evaluation_step(x,y)
+            epoch_test_loss_avg(metric.result)
+            epoch_test_acc_avg(test_loss)
         return params,model, epoch_test_loss_avg.result(),epoch_test_acc_avg.result()
     else:
         return params,model
 if __name__ == "__main__":
     params = HyperParameters
-    results = train(params)
-
-
-
+    results = run(params)

@@ -94,7 +94,9 @@ class CNNModel(tf.keras.Model):
                residual=True,
                regularizer = None,
                intializer = None,
-               use_pool= None
+               use_pool= True,
+               use_dropout = False,
+               use_batchnorm = False
                ):
         """
         Adaptive layer-wise training model
@@ -115,6 +117,9 @@ class CNNModel(tf.keras.Model):
         self.regularizer = regularizer
         self.use_pool = use_pool
         self.residual = residual
+        self.use_dropout = use_dropout
+        self.use_batchnorm = use_batchnorm
+
         if self.conv_dim == 1:
             self.input_layer = layers.Conv1D(self.n_filters, (self.projection),
                                              activation = "linear",
@@ -159,7 +164,6 @@ class CNNModel(tf.keras.Model):
             self.n_outputs,shape = (None,self.class_inp),
             layer_name = 'classify',
             initializer = "RandomNormal")
-
     def call(self, inputs):
         """
         after define the model, when you call model(inputs), this function is implicitly applied.
@@ -172,16 +176,20 @@ class CNNModel(tf.keras.Model):
             else:
                 if self.residual:
                     prev_out = out
-                    out = tf.nn.relu(prev_out + layer(out))
+                    cur_out = layer(out)
+                    if self.use_dropout:
+                        cur_out = layers.Dropout(0.2)(cur_out)
+                    if self.use_batchnorm:
+                        cur_out = layers.BatchNormalization()(cur_out)
+                    out = tf.nn.relu(prev_out + cur_out)
                 else:
                     out = layer(out)
         out = self.output_layer(out)
         if self.use_pool:
             out = self.pool(out)
         out = self.flatten(out)
-        out = self.classify(out,activation_function = None)
+        out = self.classify(out,activation_function = tf.nn.softmax)
         return out
-
     def add_layer(self, freeze = True, add = True):
         """
         add an layer to the model
@@ -221,6 +229,8 @@ class CNNModel(tf.keras.Model):
         else:
             for index in range(1,self.num_layers-1):
               self.list_cnn[index].trainable = True
+
+
     def sparsify_weights(self, threshold = 1e-6):
         """
         sparsify the last added cnn layer
@@ -231,9 +241,20 @@ class CNNModel(tf.keras.Model):
         sparsified_weights = []
         for w in weights:
             bool_mask = (w > threshold).astype(int)
-            sparsified_weights.append(w*bool_mask)
+            sparsified_weights.append(w * bool_mask)
         self.list_cnn[-1].set_weights(sparsified_weights)
 
+
+    def update_regularizer(self, regularizer = regularizers.l1(0.1)):
+        """
+        update the regularizer when the model is overfitting
+        :param regularizer:
+        :return:
+        """
+        for layer in self.layers:
+            layer.kernel_regularizer = regularizer
+
+#Deprecated functions - keep as examples
 def cal_acc(y_pred,y_true):
     """
     Calculate accuracy

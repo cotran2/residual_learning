@@ -45,3 +45,4 @@ def get_data(params):
     y_train = tf.cast(y_train, tf.int32)
     y_test = tf.cast(y_test, tf.int32)
     return x_train,y_train,x_test,y_test,params
+
