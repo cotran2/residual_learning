@@ -94,7 +94,7 @@ class CNNModel(tf.keras.Model):
                residual=True,
                regularizer = None,
                intializer = None,
-               use_pool= True,
+               use_pool= False,
                use_dropout = False,
                use_batchnorm = False
                ):
@@ -110,7 +110,7 @@ class CNNModel(tf.keras.Model):
         self.n_filters = n_filters
         self.initializer = intializer
         self.n_kernels = n_kernels
-        self.projection = 1
+        self.projection = 3
         self.n_outputs = n_outputs
         self.num_layers = 1
         self.inp_shape = inp_shape
@@ -125,6 +125,7 @@ class CNNModel(tf.keras.Model):
                                              activation = "linear",
                                              input_shape = self.inp_shape,
                                              name ='cnn_input',
+                                             padding = 'same',
                                              kernel_regularizer = self.regularizer,
                                              bias_regularizer = self.regularizer
                                             )
@@ -132,6 +133,7 @@ class CNNModel(tf.keras.Model):
                                              activation="linear",
                                              input_shape=(None, self.inp_shape[0], self.n_filters),
                                              name='cnn_output',
+                                             padding = 'same',
                                              kernel_regularizer=self.regularizer,
                                              bias_regularizer=self.regularizer
                                              )
@@ -141,6 +143,7 @@ class CNNModel(tf.keras.Model):
                                              activation="linear",
                                              input_shape=self.inp_shape,
                                              name='cnn_input',
+                                             padding = 'same',
                                              kernel_regularizer=self.regularizer,
                                              bias_regularizer=self.regularizer
                                              )
@@ -148,6 +151,7 @@ class CNNModel(tf.keras.Model):
                                              activation= "linear",
                                              input_shape=(None, self.inp_shape[0],self.inp_shape[1], self.n_filters),
                                              name="cnn_output",
+                                             padding = 'same',
                                              kernel_regularizer=self.regularizer,
                                              bias_regularizer=self.regularizer
                                              )
@@ -177,11 +181,11 @@ class CNNModel(tf.keras.Model):
                 if self.residual:
                     prev_out = out
                     cur_out = layer(out)
-                    if self.use_dropout:
-                        cur_out = layers.Dropout(0.2)(cur_out)
                     if self.use_batchnorm:
                         cur_out = layers.BatchNormalization()(cur_out)
-                    out = tf.nn.relu(prev_out + cur_out)
+                    if self.use_dropout:
+                        cur_out = layers.Dropout(0.2)(cur_out)
+                    out = prev_out + tf.nn.elu(cur_out)
                 else:
                     out = layer(out)
         out = self.output_layer(out)
@@ -200,7 +204,7 @@ class CNNModel(tf.keras.Model):
             if self.conv_dim == 1:
                 new_cnn = layers.Conv1D(self.n_filters,
                                         (self.n_kernels),
-                                        activation='linear',
+                                        activation='elu',
                                         input_shape=(None, self.inp_shape[0], self.n_filters),
                                         padding="same",
                                         name='cnn_1d_{}'.format(self.num_layers-1),
@@ -212,7 +216,7 @@ class CNNModel(tf.keras.Model):
             elif self.conv_dim == 2:
                 new_cnn = layers.Conv2D(self.n_filters,
                                         (self.n_kernels, self.n_kernels),
-                                        activation='linear',
+                                        activation='elu',
                                         input_shape=(None, self.inp_shape[0],self.inp_shape[1], self.n_filters),
                                         padding="same",
                                         name='cnn_2d_{}'.format(self.num_layers-1),
@@ -224,6 +228,7 @@ class CNNModel(tf.keras.Model):
             self.list_cnn.append(new_cnn)
 
         if freeze:
+            self.input_layer.trainable = False
             for index in range(1,self.num_layers-1):
               self.list_cnn[index].trainable = False
         else:
@@ -240,7 +245,7 @@ class CNNModel(tf.keras.Model):
         weights = self.list_cnn[-1].get_weights()
         sparsified_weights = []
         for w in weights:
-            bool_mask = (w > threshold).astype(int)
+            bool_mask = (abs(w) > threshold).astype(int)
             sparsified_weights.append(w * bool_mask)
         self.list_cnn[-1].set_weights(sparsified_weights)
 
@@ -251,8 +256,9 @@ class CNNModel(tf.keras.Model):
         :param regularizer:
         :return:
         """
-        for layer in self.layers:
-            layer.kernel_regularizer = regularizer
+        # for layer in self.layers:
+        #     layer.kernel_regularizer = regularizer
+        self.list_cnn[-1].kernel_regularizer = regularizer
 
 #Deprecated functions - keep as examples
 def cal_acc(y_pred,y_true):

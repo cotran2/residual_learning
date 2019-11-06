@@ -19,10 +19,10 @@ class HyperParameters:
     Easy to manage
     """
     n_layers = 8
-    n_epochs = 200
-    n_batches = 1000
+    n_epochs = 300
+    n_batches = 100
     target_loss = 1e-5
-    thresh_hold = 1e-3
+    thresh_hold = 1e-4
     dataset = "cifar10"
     regularizer = None
     layer_type = "cnn"
@@ -63,7 +63,8 @@ def run(params, test = False):
                          params.inp_shape,
                          params.residual,
                          params.regularizer,
-                         params.intializer)
+                         params.intializer
+        )
     optimizer = tf.keras.optimizers.Adam()
     objective = tf.keras.losses.SparseCategoricalCrossentropy()
     metric = tf.keras.metrics.SparseCategoricalAccuracy()
@@ -154,18 +155,21 @@ def run(params, test = False):
         cond_1 = abs(prev_loss - epoch_train_loss_avg.result().numpy()) < decay_coef*epoch_train_loss_avg.result().numpy()
         cond_2 = abs(prev_val_loss - epoch_val_loss_avg.result().numpy()) < decay_coef*epoch_val_loss_avg.result().numpy()
         cond_3 = epoch_train_acc_avg.result() - epoch_val_acc_avg.result() > 0.01
-
-        if cond_1 or cond_2:
-            model.add_layer(freeze=True, add = True)
+        if epoch%30 == 0:
+            model.add_layer(freeze= True, add = true)
             add_layer_epoch[model.num_layers] = epoch
-            print("Number of layer : {} and Decay Coef : {}".format(model.num_layers,decay_coef*100))
-            opt_reset
-        if cond_3:
-            print("Overfitting condition")
-            model.use_batchnorm = True
-            model.use_dropout = True
-            model.update_regularizer()
-            model.sparsify_weights(params.thresh_hold)
+        # if cond_1 or cond_2:
+        #     model.add_layer(freeze=True, add = True)
+        #     add_layer_epoch[model.num_layers] = epoch
+        #     model.use_batchnorm = True
+        #     model.use_dropout = True
+        #     model.update_regularizer()
+        #     print("Number of layer : {} and Decay Coef : {}".format(model.num_layers,decay_coef*100))
+        #     opt_reset
+        # if cond_3:
+        #     print("Overfitting condition")
+        #     model.add_layer(freeze=False, add=False)
+        #     model.sparsify_weights(params.thresh_hold)
         print('Epoch : {} | Train loss : {:.3f} | Train acc : {:.3f} | Test loss : {:.3f} | Test acc : {:.3f}'.format(
             epoch,
             epoch_train_loss_avg.result(),
