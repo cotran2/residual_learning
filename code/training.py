@@ -20,7 +20,7 @@ class HyperParameters:
     """
     n_layers = 8
     n_epochs = 300
-    n_batches = 100
+    n_batches = 10000
     target_loss = 1e-5
     thresh_hold = 1e-4
     dataset = "cifar10"
@@ -90,17 +90,17 @@ def run(params, test = False):
         Train + evaluation tf functions
     """
 
-    @tf.function
-    def train_step(images = None, labels = None, metric = metric, loss_function = objective):
-        with tf.GradientTape() as tape:
-            out = model(images)
-            batch_loss = loss_function(labels,out)
-        variables = model.trainable_variables
-        grads = tape.gradient(batch_loss, variables)
-        optimizer.apply_gradients(zip(grads, variables))
-        metric.update_state(labels,out)
-
-        return batch_loss
+    # @tf.function
+    # def train_step(images = None, labels = None, metric = metric, loss_function = objective):
+    #     with tf.GradientTape() as tape:
+    #         out = model(images)
+    #         batch_loss = loss_function(labels,out)
+    #     variables = model.trainable_variables
+    #     grads = tape.gradient(batch_loss, variables)
+    #     optimizer.apply_gradients(zip(grads, variables))
+    #     metric.update_state(labels,out)
+    #
+    #     return batch_loss
 
 
     @tf.function
@@ -121,14 +121,19 @@ def run(params, test = False):
         epoch += 1
         # Train
         if epoch == 1:
-            model.add_layer(freeze=True)
+            model.add_layer(freeze=False)
             add_layer_epoch[model.num_layers] = epoch
             print("Number of layer : {}".format(model.num_layers))
             print(model.name)
         metric.reset_states()
         for x, y in train_dataset:
             with tf.GradientTape() as tape:
-                batch_loss = train_step(x,y)
+                out = model(x)
+                batch_loss = objective(y, out)
+            variables = model.trainable_variables
+            grads = tape.gradient(batch_loss, variables)
+            optimizer.apply_gradients(zip(grads, variables))
+            metric.update_state(y, out)
             epoch_train_acc_avg(metric.result())
             epoch_train_loss_avg(batch_loss)
         #tensorboard writer - loss - weights histograms - gradient histograms
@@ -156,8 +161,10 @@ def run(params, test = False):
         cond_2 = abs(prev_val_loss - epoch_val_loss_avg.result().numpy()) < decay_coef*epoch_val_loss_avg.result().numpy()
         cond_3 = epoch_train_acc_avg.result() - epoch_val_acc_avg.result() > 0.01
         if epoch%30 == 0:
-            model.add_layer(freeze= True, add = true)
+            model.add_layer(freeze= True, add = True)
             add_layer_epoch[model.num_layers] = epoch
+            print("Number of layer : {} and Decay Coef : {}".format(model.num_layers,decay_coef*100))
+            opt_reset
         # if cond_1 or cond_2:
         #     model.add_layer(freeze=True, add = True)
         #     add_layer_epoch[model.num_layers] = epoch

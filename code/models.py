@@ -120,6 +120,8 @@ class CNNModel(tf.keras.Model):
         self.use_dropout = use_dropout
         self.use_batchnorm = use_batchnorm
 
+        kernel_initializer = initializers.RandomNormal(mean=0.0, stddev=0.05)
+
         if self.conv_dim == 1:
             self.input_layer = layers.Conv1D(self.n_filters, (self.projection),
                                              activation = "linear",
@@ -127,7 +129,9 @@ class CNNModel(tf.keras.Model):
                                              name ='cnn_input',
                                              padding = 'same',
                                              kernel_regularizer = self.regularizer,
-                                             bias_regularizer = self.regularizer
+                                             bias_regularizer = self.regularizer,
+                                             kernel_initializer=kernel_initializer,
+                                             bias_initializer=initializers.get("zeros")
                                             )
             self.output_layer = layers.Conv1D(self.n_kernels, (self.projection),
                                              activation="linear",
@@ -135,9 +139,12 @@ class CNNModel(tf.keras.Model):
                                              name='cnn_output',
                                              padding = 'same',
                                              kernel_regularizer=self.regularizer,
-                                             bias_regularizer=self.regularizer
+                                             bias_regularizer=self.regularizer,
+                                             kernel_initializer=kernel_initializer,
+                                             bias_initializer=initializers.get("zeros")
                                              )
-            self.pool = layers.MaxPool1D()
+            if self.use_pool:
+                self.pool = layers.MaxPool1D()
         elif self.conv_dim == 2:
             self.input_layer = layers.Conv2D(self.n_filters, (self.projection,self.projection),
                                              activation="linear",
@@ -145,7 +152,9 @@ class CNNModel(tf.keras.Model):
                                              name='cnn_input',
                                              padding = 'same',
                                              kernel_regularizer=self.regularizer,
-                                             bias_regularizer=self.regularizer
+                                             bias_regularizer=self.regularizer,
+                                             kernel_initializer=kernel_initializer,
+                                             bias_initializer=initializers.get("zeros")
                                              )
             self.output_layer = layers.Conv2D(self.n_kernels, (self.projection, self.projection),
                                              activation= "linear",
@@ -153,9 +162,12 @@ class CNNModel(tf.keras.Model):
                                              name="cnn_output",
                                              padding = 'same',
                                              kernel_regularizer=self.regularizer,
-                                             bias_regularizer=self.regularizer
+                                             bias_regularizer=self.regularizer,
+                                             kernel_initializer=kernel_initializer,
+                                             bias_initializer=initializers.get("zeros")
                                              )
-            self.pool = layers.MaxPool2D()
+            if self.use_pool:
+                self.pool = layers.MaxPool2D()
         self.list_cnn = [self.input_layer]
         self.flatten = layers.Flatten()
 
@@ -164,10 +176,14 @@ class CNNModel(tf.keras.Model):
             self.class_inp = np.prod(self.inp_shape[:-1])*self.n_kernels
         else:
             self.class_inp = np.prod(self.inp_shape[:-1])*self.n_kernels//(2**self.conv_dim)
-        self.classify = MyDenseLayer(
-            self.n_outputs,shape = (None,self.class_inp),
-            layer_name = 'classify',
-            initializer = "RandomNormal")
+        # self.classify = MyDenseLayer(
+        #     self.n_outputs,shape = (None,self.class_inp),
+        #     layer_name = 'classify',
+        #     initializer = "RandomNormal")
+        self.classify = layers.Dense(units = self.n_outputs,
+                                          activation = 'softmax', use_bias = True,
+                                          kernel_initializer = kernel_initializer, bias_initializer=initializers.get("zeros"),
+                                          name = 'classification_layer')
     def call(self, inputs):
         """
         after define the model, when you call model(inputs), this function is implicitly applied.
@@ -185,14 +201,14 @@ class CNNModel(tf.keras.Model):
                         cur_out = layers.BatchNormalization()(cur_out)
                     if self.use_dropout:
                         cur_out = layers.Dropout(0.2)(cur_out)
-                    out = prev_out + tf.nn.elu(cur_out)
+                    out = prev_out + cur_out
                 else:
                     out = layer(out)
         out = self.output_layer(out)
         if self.use_pool:
             out = self.pool(out)
         out = self.flatten(out)
-        out = self.classify(out,activation_function = tf.nn.softmax)
+        out = self.classify(out)
         return out
     def add_layer(self, freeze = True, add = True):
         """
@@ -228,11 +244,10 @@ class CNNModel(tf.keras.Model):
             self.list_cnn.append(new_cnn)
 
         if freeze:
-            self.input_layer.trainable = False
-            for index in range(1,self.num_layers-1):
+            for index in range(0,self.num_layers-1):
               self.list_cnn[index].trainable = False
         else:
-            for index in range(1,self.num_layers-1):
+            for index in range(0,self.num_layers-1):
               self.list_cnn[index].trainable = True
 
 
