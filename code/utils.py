@@ -17,6 +17,7 @@ def get_data(params):
     elif params.dataset == 'cifar100':
         (x_train, y_train), (x_test, y_test) = datasets.cifar100.load_data()
         x_train, x_test = x_train / 255.0, x_test / 255.0
+
     x_train = tf.image.per_image_standardization(x_train)
     x_test = tf.image.per_image_standardization(x_test)
 

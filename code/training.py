@@ -103,13 +103,13 @@ def run(params, test = False):
     #     return batch_loss
 
 
-    @tf.function
-    def evaluation_step(images = None, labels = None, metric = metric, loss_function = objective):
-        out = model(images)
-        batch_loss = loss_function(labels,out)
-        metric.update_state(labels,out)
-
-        return batch_loss
+    # @tf.function
+    # def evaluation_step(images = None, labels = None, metric = metric, loss_function = objective):
+    #     out = model(images)
+    #     batch_loss = loss_function(labels,out)
+    #     metric.update_state(labels,out)
+    #
+    #     return batch_loss
     """
         Train data
     """
@@ -147,8 +147,10 @@ def run(params, test = False):
         # Validate
         metric.reset_states()
         for x, y in val_dataset:
-            val_loss = evaluation_step(x,y)
+            val_out = model(x)
+            val_loss = objective(y,val_out)
             epoch_val_loss_avg(val_loss)
+            metric.update_state(y,val_out)
             epoch_val_acc_avg(metric.result())
         with test_summary_writer.as_default():
             tf.summary.scalar('loss', epoch_val_loss_avg.result(), step=epoch)

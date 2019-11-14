@@ -182,6 +182,7 @@ class CNNModel(tf.keras.Model):
         #     initializer = "RandomNormal")
         self.classify = layers.Dense(units = self.n_outputs,
                                           activation = 'softmax', use_bias = True,
+                                          input_shape = self.class_inp,
                                           kernel_initializer = kernel_initializer, bias_initializer=initializers.get("zeros"),
                                           name = 'classification_layer')
     def call(self, inputs):
